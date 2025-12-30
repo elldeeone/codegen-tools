@@ -1,7 +1,8 @@
 # Brainstorm + ship helpers
 export PROJECTS_DIR="${PROJECTS_DIR:-$HOME/Projects}"
 export BRAIN_INBOX_DIR="${BRAIN_INBOX_DIR:-$PROJECTS_DIR/_inbox}"
-export BRAIN_PROMPT=${BRAIN_PROMPT:-$'You are in brainstorm mode.\nDo not run commands or edit files except the NOTES.md for the current idea folder (path provided below).\nOnly update NOTES.md when a decision, constraint, or clear next step is agreed.\nIf you are unsure whether something is decided, ask: "Should I record that?"\nWhen updating, keep it terse (Decisions / Constraints / Next steps). No fluff.\nYour first response must greet the user by name ("Luke") and ask exactly: "What are we building today?" Do not ask any other questions or suggest ideas before the user answers.\nAfter the user shares the idea, ask if they already have a project name; if they do not, suggest 3-5 name ideas.\nThen ask clarifying questions and propose options.\nWait for the user to say "ship" before doing anything else.'}
+export BRAIN_PROMPT=${BRAIN_PROMPT:-$'You are in brainstorm mode.\nDo not run commands or edit files except the NOTES.md for the current idea folder (path provided below).\nOnly update NOTES.md when a decision, constraint, or clear next step is agreed.\nIf you are unsure whether something is decided, ask: "Should I record that?"\nWhen updating, keep it terse (Decisions / Constraints / Next steps). No fluff.\nAfter the user confirms a decision (name, stack, scope, style, interaction, etc.), immediately update NOTES.md before asking any new question or offering more options. Do not ask permission to record and do not mention the update unless the user asks.\nWhen recording the project name, use exactly: "- Project name: <name>" under Decisions.\nYour first response must greet the user by name ("Luke") and ask exactly: "What are we building today?" Do not ask any other questions or suggest ideas before the user answers.\nAfter the user shares the idea, ask if they already have a project name; if they do not, suggest 3-5 name ideas.\nThen ask clarifying questions and propose options.\nWhen the user says "ship", update NOTES.md and reply with exactly one line: Exit and run: ship "<project name>". Do not add any other text.\nWait for the user to say "ship" before doing anything else.'}
+export BRAIN_STARTER_PROMPT="${BRAIN_STARTER_PROMPT:-Start.}"
 
 brain() {
   local agent=""
@@ -28,6 +29,7 @@ brain() {
   [[ -f NOTES.md ]] || printf "# Brainstorm\n\n" > NOTES.md
   local notes_path="$dir/NOTES.md"
   local prompt="${BRAIN_PROMPT}"$'\n'"Current idea folder: $dir"$'\n'"NOTES.md path: $notes_path"
+  local starter="$BRAIN_STARTER_PROMPT"
 
   case "$agent" in
     codex)
@@ -39,9 +41,17 @@ brain() {
       ;;
     claude)
       if (( danger )); then
-        command claude --dangerously-skip-permissions --append-system-prompt "$prompt" "${args[@]}"
+        if [[ -n "$starter" ]]; then
+          command claude --dangerously-skip-permissions --append-system-prompt "$prompt" "${args[@]}" "$starter"
+        else
+          command claude --dangerously-skip-permissions --append-system-prompt "$prompt" "${args[@]}"
+        fi
       else
-        command claude --append-system-prompt "$prompt" "${args[@]}"
+        if [[ -n "$starter" ]]; then
+          command claude --append-system-prompt "$prompt" "${args[@]}" "$starter"
+        else
+          command claude --append-system-prompt "$prompt" "${args[@]}"
+        fi
       fi
       ;;
     gemini)
@@ -61,9 +71,29 @@ brain() {
 }
 
 ship() {
+  local src="$PWD"
+  if [[ -n "$BRAIN_INBOX_DIR" && "$src" == "$BRAIN_INBOX_DIR"/* ]]; then
+    local rel="${src#"$BRAIN_INBOX_DIR"/}"
+    local root="${rel%%/*}"
+    if [[ -n "$root" ]]; then
+      src="$BRAIN_INBOX_DIR/$root"
+    fi
+  fi
+
   local name="$*"
   if [[ -z "$name" ]]; then
-    echo "Usage: ship <name>"
+    local notes_file="$src/NOTES.md"
+    if [[ -f "$notes_file" ]]; then
+      if command -v rg >/dev/null 2>&1; then
+        name=$(rg -m1 -n '^-\s*Project name:\s*' "$notes_file" | sed -E 's/^-+[[:space:]]*Project name:[[:space:]]*//')
+      else
+        name=$(sed -nE 's/^-+[[:space:]]*Project name:[[:space:]]*//p' "$notes_file" | head -n 1)
+      fi
+      name=$(printf "%s" "$name" | sed -E 's/[[:space:]]+$//')
+    fi
+  fi
+  if [[ -z "$name" ]]; then
+    echo "Usage: ship <name> (or add '- Project name: ...' to NOTES.md)"
     return 1
   fi
 
@@ -72,15 +102,6 @@ ship() {
   if [[ -z "$slug" ]]; then
     echo "Could not derive a project slug from the name."
     return 1
-  fi
-
-  local src="$PWD"
-  if [[ -n "$BRAIN_INBOX_DIR" && "$src" == "$BRAIN_INBOX_DIR"/* ]]; then
-    local rel="${src#"$BRAIN_INBOX_DIR"/}"
-    local root="${rel%%/*}"
-    if [[ -n "$root" ]]; then
-      src="$BRAIN_INBOX_DIR/$root"
-    fi
   fi
 
   local dest="$PROJECTS_DIR/$slug"

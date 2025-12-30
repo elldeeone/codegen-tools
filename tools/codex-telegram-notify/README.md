@@ -14,7 +14,7 @@ Sends a Telegram message whenever Codex emits an agent-turn-complete event.
    export TELEGRAM_BOT_TOKEN="..."
    export TELEGRAM_CHAT_ID="..."
 4) Add the notify hook to ~/.codex/config.toml (adjust the path):
-   notify = ["python3", "/Users/luke/Documents/GitHub/codegen-tools/tools/codex-telegram-notify/notify-telegram.py"]
+   notify = ["python3", "/Users/luke/Projects/codegen-tools/tools/codex-telegram-notify/notify-telegram.py"]
 
 ## Test
 - Start Codex and wait for a turn to complete, or run:

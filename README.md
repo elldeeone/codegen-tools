@@ -7,6 +7,7 @@ Small local tools and scripts for codegen, automation, and workflow helpers.
 
 ## Tool index
 - tools/codex-telegram-notify: Codex CLI notify hook that sends Telegram pings on turn completion
+- tools/brain-ship: Brainstorm-first helpers to create idea folders and ship projects
 
 ## Conventions
 - keep secrets out of git; use .env.example files

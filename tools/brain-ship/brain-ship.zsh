@@ -3,6 +3,7 @@ export PROJECTS_DIR="${PROJECTS_DIR:-$HOME/Projects}"
 export BRAIN_INBOX_DIR="${BRAIN_INBOX_DIR:-$PROJECTS_DIR/_inbox}"
 export BRAIN_PROMPT=${BRAIN_PROMPT:-$'You are in brainstorm mode.\nDo not run commands or edit files except the NOTES.md for the current idea folder (path provided below).\nOnly update NOTES.md when a decision, constraint, or clear next step is agreed.\nIf you are unsure whether something is decided, ask: "Should I record that?"\nWhen updating, keep it terse (Decisions / Constraints / Next steps). No fluff.\nAfter the user confirms a decision (name, stack, scope, style, interaction, etc.), immediately update NOTES.md before asking any new question or offering more options. Do not ask permission to record and do not mention the update unless the user asks.\nWhen recording the project name, use exactly: "- Project name: <name>" under Decisions.\nYour first response must greet the user by name ("Luke") and ask exactly: "What are we building today?" Do not ask any other questions or suggest ideas before the user answers.\nAfter the user shares the idea, ask if they already have a project name; if they do not, suggest 3-5 name ideas.\nThen ask clarifying questions and propose options.\nWhen the user says "ship", update NOTES.md and reply with exactly one line: Exit and run: ship "<project name>". Do not add any other text.\nWait for the user to say "ship" before doing anything else.'}
 export BRAIN_STARTER_PROMPT="${BRAIN_STARTER_PROMPT:-Start.}"
+export SHIP_OPEN="${SHIP_OPEN:-1}"
 
 brain() {
   local agent=""
@@ -115,4 +116,14 @@ ship() {
   cd "$dest" || return
   [[ -d .git ]] || git init -q
   [[ -f README.md ]] || printf "# %s\n\n" "$name" > README.md
+
+  if [[ "$SHIP_OPEN" == "1" ]]; then
+    if command -v zed >/dev/null 2>&1; then
+      zed .
+    elif open -Ra "Zed" >/dev/null 2>&1; then
+      open -a "Zed" .
+    else
+      echo "Zed not found; set SHIP_OPEN=0 to disable auto-open."
+    fi
+  fi
 }

@@ -31,14 +31,11 @@ brain() {
   local notes_path="$dir/NOTES.md"
   local prompt="${BRAIN_PROMPT}"$'\n'"Current idea folder: $dir"$'\n'"NOTES.md path: $notes_path"
   local starter="$BRAIN_STARTER_PROMPT"
+  local codex_full_access=(--sandbox danger-full-access --ask-for-approval never)
 
   case "$agent" in
     codex)
-      if (( danger )); then
-        command codex -C "$BRAIN_INBOX_DIR" --dangerously-bypass-approvals-and-sandbox "${args[@]}" "$prompt"
-      else
-        command codex -C "$BRAIN_INBOX_DIR" "${args[@]}" "$prompt"
-      fi
+      command codex -C "$BRAIN_INBOX_DIR" "${codex_full_access[@]}" "${args[@]}" "$prompt"
       ;;
     claude)
       if (( danger )); then

@@ -1,6 +1,9 @@
 # Brainstorm + ship helpers
 export PROJECTS_DIR="${PROJECTS_DIR:-$HOME/Projects}"
 export BRAIN_INBOX_DIR="${BRAIN_INBOX_DIR:-$PROJECTS_DIR/_inbox}"
+export AGENT_SCRIPTS_DIR="${AGENT_SCRIPTS_DIR:-$HOME/Projects/agent-scripts}"
+export SHIP_BOOTSTRAP="${SHIP_BOOTSTRAP:-1}"
+export SHIP_BOOTSTRAP_DOCS="${SHIP_BOOTSTRAP_DOCS:-1}"
 export BRAIN_PROMPT=${BRAIN_PROMPT:-$'You are in brainstorm mode.\nDuring brainstorm mode, you may do as much research online as you want, from anywhere, and take as long as you need.\nDo not run commands or edit files except the NOTES.md for the current idea folder (path provided below).\nOnly update NOTES.md when a decision, constraint, or clear next step is agreed.\nIf you are unsure whether something is decided, ask: "Should I record that?"\nWhen updating, keep it terse (Decisions / Constraints / Next steps). No fluff.\nAfter the user confirms a decision (name, stack, scope, style, interaction, etc.), immediately update NOTES.md before asking any new question or offering more options. Do not ask permission to record and do not mention the update unless the user asks.\nWhen recording the project name, use exactly: "- Project name: <name>" under Decisions.\nYour first response must greet the user by name ("Luke") and ask exactly: "What are we building today?" Do not ask any other questions or suggest ideas before the user answers.\nAfter the user shares the idea, ask if they already have a project name; if they do not, suggest 3-5 name ideas.\nThen ask clarifying questions and propose options.\nWhen the user says "ship", do a final sweep to ensure NOTES.md captures all agreed decisions, constraints, and next steps from the conversation; add anything missing, then reply with exactly one line: Exit and run: ship "<project name>". Do not add any other text.\nWait for the user to say "ship" before doing anything else.'}
 export BRAIN_STARTER_PROMPT="${BRAIN_STARTER_PROMPT:-Start.}"
 export SHIP_OPEN="${SHIP_OPEN:-1}"
@@ -113,6 +116,46 @@ ship() {
   cd "$dest" || return
   [[ -d .git ]] || git init -q
   [[ -f README.md ]] || printf "# %s\n\n" "$name" > README.md
+
+  if [[ "$SHIP_BOOTSTRAP" == "1" ]]; then
+    if [[ -d "$AGENT_SCRIPTS_DIR" ]]; then
+      if [[ ! -f AGENTS.MD ]]; then
+        printf "READ %s/AGENTS.MD BEFORE ANYTHING (skip if missing).\n" "$AGENT_SCRIPTS_DIR" > AGENTS.MD
+      fi
+
+      mkdir -p scripts
+      if [[ -f "$AGENT_SCRIPTS_DIR/scripts/committer" ]]; then
+        cp -p "$AGENT_SCRIPTS_DIR/scripts/committer" scripts/committer
+        chmod +x scripts/committer
+      else
+        echo "Missing: $AGENT_SCRIPTS_DIR/scripts/committer"
+      fi
+
+      if [[ -f "$AGENT_SCRIPTS_DIR/scripts/docs-list.ts" ]]; then
+        cp -p "$AGENT_SCRIPTS_DIR/scripts/docs-list.ts" scripts/docs-list.ts
+        chmod +x scripts/docs-list.ts
+
+        if [[ "$SHIP_BOOTSTRAP_DOCS" == "1" ]]; then
+          mkdir -p docs
+          if [[ ! -f docs/onboarding.md ]]; then
+            cat > docs/onboarding.md <<'EOF'
+---
+summary: "Project onboarding."
+read_when:
+  - "Before first feature work."
+---
+
+# Onboarding
+EOF
+          fi
+        fi
+      else
+        echo "Missing: $AGENT_SCRIPTS_DIR/scripts/docs-list.ts"
+      fi
+    else
+      echo "agent-scripts not found at $AGENT_SCRIPTS_DIR; skipping bootstrap."
+    fi
+  fi
 
   if [[ "$SHIP_OPEN" == "1" ]]; then
     if command -v zed >/dev/null 2>&1; then
